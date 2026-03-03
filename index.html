@@ -113,6 +113,26 @@ course,bin,shime,cut
       </section>
 
       <!-- ===== SUMMARY (必須：切り上げ禁止) ===== -->
+     <!-- ===== SELECT / MOVE BAR ===== -->
+<section class="section">
+  <div class="sectionTitle">選択操作</div>
+  <div class="row">
+    <button id="btnSelectAllVisible" class="btn ghost" type="button">表示を全選択</button>
+    <button id="btnSelectNone" class="btn ghost" type="button">解除</button>
+    <button id="btnRangeSelect" class="btn ghost" type="button">範囲選択</button>
+    <button id="btnDeleteSelected" class="btn ghost" type="button">選択を削除</button>
+  </div>
+
+  <div class="sectionTitle" style="margin-top:10px;">グループ移動（選択を移動）</div>
+  <div class="row">
+    <button class="btn primary" data-move="A" type="button">Aへ</button>
+    <button class="btn primary" data-move="B" type="button">Bへ</button>
+    <button class="btn primary" data-move="C" type="button">Cへ</button>
+    <button class="btn primary" data-move="D" type="button">Dへ</button>
+    <button class="btn primary" data-move="E" type="button">Eへ</button>
+    <button class="btn ghost" id="btnMoveUnassigned" type="button">未振分へ</button>
+  </div>
+</section>
       <section class="section">
         <div class="summary">
           <div class="sumBox">

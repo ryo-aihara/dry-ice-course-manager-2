@@ -1,0 +1,246 @@
+<!-- index.html -->
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f172a" />
+  <title>Dry Ice Course Manager</title>
+
+  <!-- iPhoneキャッシュ対策：vを変えれば確実に更新 -->
+  <link rel="stylesheet" href="css/style.css?v=20260303a" />
+
+  <!-- iOS PWAっぽく（※SWは使わない方針） -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+</head>
+
+<body>
+  <div id="app">
+
+    <!-- ===== TOP BAR ===== -->
+    <header class="topbar">
+      <div class="brand">
+        <div class="title">Dry Ice Course Manager</div>
+        <div class="subtitle">ドライアイス コース管理アプリ</div>
+      </div>
+
+      <div class="status">
+        <div class="pill" id="monthPill">MONTH: ---- --</div>
+        <div class="pill" id="modePill">MODE: --</div>
+        <div class="pill warn hidden" id="overridePill">OVERRIDE</div>
+        <div class="pill ok hidden" id="csvLoadedPill">CSV LOADED</div>
+      </div>
+    </header>
+
+    <!-- ===== MAIN ===== -->
+    <main class="panel">
+
+      <!-- ===== CSV INPUT ===== -->
+      <section class="section">
+        <div class="sectionTitle">CSV貼り付け（OCR禁止）</div>
+
+        <textarea id="csvInput" class="csvArea" spellcheck="false"
+          placeholder="例）
+shime_size,25
+course,bin,shime,cut
+501,1,1,8
+505,2,0,10
+"></textarea>
+
+        <div class="row">
+          <button id="applyCSV" class="btn primary" type="button">CSVを読み込む</button>
+          <button id="clearCSV" class="btn ghost" type="button">クリア</button>
+        </div>
+
+        <div class="hint">
+          ・便は <b>course×bin</b> 単位で分離（合算禁止）<br/>
+          ・基準はCSV1行目 <b>shime_size</b> が最優先（手動変更はOVERRIDE表示）
+        </div>
+
+        <div class="error hidden" id="csvError"></div>
+      </section>
+
+      <!-- ===== NAV: BIN / MODE ===== -->
+      <section class="section grid2">
+        <div class="box">
+          <div class="sectionTitle">便（合算禁止）</div>
+          <div class="seg" role="tablist" aria-label="便トグル">
+            <button class="segBtn active" id="bin1Btn" type="button" aria-selected="true">1便</button>
+            <button class="segBtn" id="bin2Btn" type="button" aria-selected="false">2便</button>
+          </div>
+        </div>
+
+        <div class="box">
+          <div class="sectionTitle">期（25 / 30）</div>
+          <div class="seg" role="tablist" aria-label="期トグル">
+            <button class="segBtn" id="mode25Btn" type="button" aria-selected="false">25期</button>
+            <button class="segBtn" id="mode30Btn" type="button" aria-selected="false">30期</button>
+          </div>
+          <div class="hint">
+            ※月は毎月1日切替（起動時に確認）
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== NAV: RANGE / SEARCH ===== -->
+      <section class="section">
+        <div class="sectionTitle">範囲</div>
+        <div class="tabs" role="tablist" aria-label="範囲タブ">
+          <button class="tabBtn active" id="tab501" type="button" aria-selected="true">501-510</button>
+          <button class="tabBtn" id="tab601" type="button" aria-selected="false">601-619</button>
+          <button class="tabBtn" id="tab621" type="button" aria-selected="false">621-648</button>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="sectionTitle">検索（スクロール禁止）</div>
+        <div class="searchRow">
+          <input id="courseSearch" class="searchInput" inputmode="numeric" pattern="[0-9]*"
+                 placeholder="例）501 / 50（前方一致）" />
+          <button id="clearSearch" class="btn ghost" type="button">クリア</button>
+        </div>
+      </section>
+
+      <!-- ===== VIEW SWITCH ===== -->
+      <section class="section">
+        <div class="sectionTitle">表示</div>
+        <div class="tabs" role="tablist" aria-label="表示モード">
+          <button class="tabBtn active" id="viewCards" type="button" aria-selected="true">カード</button>
+          <button class="tabBtn" id="viewPaper" type="button" aria-selected="false">紙ビュー</button>
+          <button class="tabBtn" id="viewData" type="button" aria-selected="false">データ</button>
+        </div>
+      </section>
+
+      <!-- ===== SUMMARY (必須：切り上げ禁止) ===== -->
+      <section class="section">
+        <div class="summary">
+          <div class="sumBox">
+            <div class="sumLabel">ドライアイス合計</div>
+            <div class="sumValue" id="dryCases">-- ケース</div>
+            <div class="sumSub" id="dryBara">バラ --</div>
+          </div>
+          <div class="sumBox">
+            <div class="sumLabel">蓄冷合計（20枚=1ケース）</div>
+            <div class="sumValue" id="coolCases">-- ケース</div>
+            <div class="sumSub" id="coolBara">バラ -- 枚</div>
+          </div>
+        </div>
+        <div class="hint">
+          ※切り上げ禁止（必ず floor / % で「ケース＋バラ」表示）
+        </div>
+      </section>
+
+      <!-- ===== CONTENT ===== -->
+      <section class="content">
+
+        <!-- Cards View -->
+        <div id="cardsView" class="view active">
+          <div class="groups">
+            <div class="groupCol">
+              <div class="groupHead">
+                <div class="groupTitle">未振り分け</div>
+                <div class="groupMeta" id="unassignedCount">-- 件</div>
+              </div>
+              <div class="stack" id="groupUnassigned"></div>
+            </div>
+
+            <div class="groupCol">
+              <div class="groupHead">
+                <div class="groupTitle">A</div>
+                <div class="groupMeta" id="groupACount">-- 件</div>
+              </div>
+              <div class="stack" id="groupA"></div>
+            </div>
+
+            <div class="groupCol">
+              <div class="groupHead">
+                <div class="groupTitle">B</div>
+                <div class="groupMeta" id="groupBCount">-- 件</div>
+              </div>
+              <div class="stack" id="groupB"></div>
+            </div>
+
+            <div class="groupCol">
+              <div class="groupHead">
+                <div class="groupTitle">C</div>
+                <div class="groupMeta" id="groupCCount">-- 件</div>
+              </div>
+              <div class="stack" id="groupC"></div>
+            </div>
+
+            <div class="groupCol">
+              <div class="groupHead">
+                <div class="groupTitle">D</div>
+                <div class="groupMeta" id="groupDCount">-- 件</div>
+              </div>
+              <div class="stack" id="groupD"></div>
+            </div>
+
+            <div class="groupCol">
+              <div class="groupHead">
+                <div class="groupTitle">E</div>
+                <div class="groupMeta" id="groupECount">-- 件</div>
+              </div>
+              <div class="stack" id="groupE"></div>
+            </div>
+
+            <div class="groupCol">
+              <div class="groupHead">
+                <div class="groupTitle">削除済み（復活）</div>
+                <div class="groupMeta" id="deletedCount">-- 件</div>
+              </div>
+              <div class="stack" id="groupDeleted"></div>
+            </div>
+          </div>
+
+          <div class="row">
+            <button id="addGroupBtn" class="btn ghost" type="button">＋ グループ追加</button>
+            <button id="addCourseBtn" class="btn ghost" type="button">＋ コース追加</button>
+          </div>
+        </div>
+
+        <!-- Paper View -->
+        <div id="paperView" class="view">
+          <div class="paper">
+            <div class="paperHead">
+              <div class="paperTitle">紙ビュー（照合）</div>
+              <label class="checkRow">
+                <input type="checkbox" id="paperChecklistToggle" />
+                <span>確認チェック表示</span>
+              </label>
+            </div>
+            <div class="paperGrid" id="paperGrid"></div>
+          </div>
+        </div>
+
+        <!-- Data View -->
+        <div id="dataView" class="view">
+          <div class="dataPane">
+            <div class="dataHead">
+              <div class="dataTitle">DATA STREAM</div>
+              <div class="dataBadges">
+                <span class="badge" id="dataLive">LIVE</span>
+                <span class="badge" id="dataMode">-- MODE</span>
+                <span class="badge" id="dataBin">BIN --</span>
+              </div>
+            </div>
+            <pre class="dataCode" id="dataCode">(no data)</pre>
+          </div>
+        </div>
+
+      </section>
+    </main>
+
+    <!-- ===== FOOTER ===== -->
+    <footer class="footer">
+      <div class="build" id="buildLabel">BUILD: 20260303a</div>
+      <div class="footerNote">※SWなし / v更新で確実に更新（iPhoneキャッシュ対策）</div>
+    </footer>
+
+  </div>
+
+  <!-- JS（次の合図で出す） -->
+  <script src="js/app.js?v=20260303a" defer></script>
+</body>
+</html>
